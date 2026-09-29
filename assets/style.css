@@ -365,7 +365,11 @@ button { font: inherit; color: inherit; }
 
 /* ============ Responsive ============ */
 @media (max-width: 560px) {
-  :root { --top-h: 52px; }
+  :root { --top-h: 52px; --read-size: 16px; }
+  .prose { line-height: 1.8; }
+  .prose h1 { font-size: 1.5em; }
+  .prose h2 { font-size: 1.16em; margin-top: 2em; }
+  .ch-head { margin-bottom: 26px; }
   .reader { padding: 0 0 32px; }
   .sheet { border-radius: 0; border-left: 0; border-right: 0; box-shadow: none; margin-top: 0; }
   .sheet::before { display: none; }

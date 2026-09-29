@@ -57,6 +57,8 @@
   var CALLOUT = { NOTE: '참고', TIP: '알아두면 좋아요', WARNING: '주의', IMPORTANT: '꼭 기억하세요', CAUTION: '주의' };
 
   function renderMarkdown(md) {
+    // '2016~2020'처럼 범위를 뜻하는 물결표가 취소선으로 바뀌지 않게, 홑물결(~)은 글자 그대로 둔다
+    md = md.replace(/(^|[^~\\])~(?!~)/g, '$1\\~');
     var html = DOMPurify.sanitize(marked.parse(md), { ADD_TAGS: ['details', 'summary'], ADD_ATTR: ['open'] });
     var box = document.createElement('div');
     box.innerHTML = html;
@@ -75,6 +77,23 @@
       t.className = 'callout-title';
       t.textContent = CALLOUT[type];
       bq.insertBefore(t, bq.firstChild);
+    });
+    // 한글 조사와 붙은 굵게(**용어(영문)**은)는 CommonMark 규칙상 해석되지 않으므로 남은 **를 직접 처리
+    var walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT, null);
+    var texts = [];
+    while (walker.nextNode()) {
+      var tn = walker.currentNode;
+      if (tn.nodeValue.indexOf('**') >= 0 && !tn.parentNode.closest('code, pre')) texts.push(tn);
+    }
+    texts.forEach(function (tn) {
+      var parts = tn.nodeValue.split(/\*\*([^*]+?)\*\*/);
+      if (parts.length < 3) return;
+      var frag = document.createDocumentFragment();
+      parts.forEach(function (s, i) {
+        if (i % 2) { var st = document.createElement('strong'); st.textContent = s; frag.appendChild(st); }
+        else if (s) frag.appendChild(document.createTextNode(s));
+      });
+      tn.parentNode.replaceChild(frag, tn);
     });
     // 넓은 표는 가로 스크롤
     box.querySelectorAll('table').forEach(function (t) {
@@ -287,12 +306,15 @@
   /* ---------- 읽기 설정 ---------- */
   var settingsEl = $('#settings'), settingsBtn = $('#settingsBtn');
   var settings = store.get('settings', {});
+  function defaultSize() { return matchMedia('(max-width: 560px)').matches ? 16 : 18; }
   function applySettings() {
     var root = document.documentElement;
     if (settings.theme && settings.theme !== 'auto') root.dataset.theme = settings.theme; else delete root.dataset.theme;
     root.dataset.font = settings.font || 'serif';
-    var size = settings.size || 18;
-    root.style.setProperty('--read-size', size + 'px');
+    // 직접 고른 크기가 없으면 화면 폭에 맞는 CSS 기본값(모바일 16px, 그 외 18px)을 따른다
+    if (settings.size) root.style.setProperty('--read-size', settings.size + 'px');
+    else root.style.removeProperty('--read-size');
+    var size = settings.size || defaultSize();
     $('#sizeOut').textContent = size;
     settingsEl.querySelectorAll('[data-font]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.font === (settings.font || 'serif'))); });
     settingsEl.querySelectorAll('[data-theme]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.theme === (settings.theme || 'auto'))); });
@@ -306,7 +328,7 @@
   });
   settingsEl.addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.size) settings.size = Math.min(26, Math.max(15, (settings.size || 18) + +b.dataset.size));
+    if (b.dataset.size) settings.size = Math.min(26, Math.max(14, (settings.size || defaultSize()) + +b.dataset.size));
     if (b.dataset.font) settings.font = b.dataset.font;
     if (b.dataset.theme) settings.theme = b.dataset.theme;
     applySettings();
